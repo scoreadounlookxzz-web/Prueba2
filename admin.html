@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineAR | Admin Studio</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src='//libtl.com/sdk.js' data-zone='10297947' data-sdk='show_10297947'></script>
+
+    <style>
+        :root {
+            --primary: #e50914; /* Netflix Red vibe */
+            --secondary: #221f1f;
+            --dark-bg: #0f0f0f;
+            --panel-bg: #141414;
+            --text-color: #f5f5f1;
+            --glow: 0 0 10px rgba(229, 9, 20, 0.7);
+            --gradient: linear-gradient(45deg, #e50914, #b20710);
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            overflow-x: hidden;
+        }
+
+        /* --- Animations --- */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes glowPulse { 0% { box-shadow: 0 0 5px var(--primary); } 50% { box-shadow: 0 0 20px var(--primary); } 100% { box-shadow: 0 0 5px var(--primary); } }
+
+        /* --- Login Screen --- */
+        #login-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #1a1a1a, #000);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        .login-box {
+            background: rgba(0,0,0,0.8);
+            padding: 3rem;
+            border-radius: 10px;
+            border: 1px solid var(--primary);
+            box-shadow: var(--glow);
+            text-align: center;
+            width: 350px;
+            animation: fadeIn 0.8s ease;
+        }
+        .login-box h1 { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: var(--primary); margin-bottom: 20px; letter-spacing: 2px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { font-size: 0.8rem; color: #aaa; }
+        .input-group input {
+            width: 100%; padding: 10px; background: #222; border: 1px solid #333; color: #fff;
+            border-radius: 4px; outline: none; transition: 0.3s;
+        }
+        .input-group input:focus { border-color: var(--primary); box-shadow: 0 0 5px var(--primary); }
+        .btn-primary {
+            width: 100%; padding: 12px; background: var(--gradient); border: none; color: white;
+            font-weight: bold; cursor: pointer; border-radius: 4px; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .btn-primary:hover { transform: scale(1.02); box-shadow: var(--glow); }
+        .forgot-pass { margin-top: 10px; font-size: 0.8rem; color: #bbb; cursor: pointer; text-decoration: underline; }
+
+        /* --- Main Dashboard Layout --- */
+        #admin-panel { display: none; display: flex; height: 100vh; } /* Hidden by default */
+        
+        /* Sidebar */
+        .sidebar {
+            width: 250px; background: var(--panel-bg); display: flex; flex-direction: column;
+            border-right: 1px solid #333; transition: 0.3s;
+        }
+        .brand {
+            padding: 20px; text-align: center; border-bottom: 1px solid #333;
+        }
+        .brand h2 { font-family: 'Bebas Neue'; color: var(--primary); font-size: 2.5rem; letter-spacing: 2px; text-shadow: var(--glow); }
+        
+        .nav-links { list-style: none; padding: 20px 0; flex: 1; }
+        .nav-links li {
+            padding: 15px 25px; cursor: pointer; color: #aaa; transition: 0.3s; display: flex; align-items: center; gap: 10px;
+        }
+        .nav-links li:hover, .nav-links li.active {
+            background: rgba(229, 9, 20, 0.1); color: #fff; border-left: 4px solid var(--primary);
+        }
+        .logout-btn { padding: 20px; text-align: center; border-top: 1px solid #333; cursor: pointer; color: #e50914; font-weight: bold; }
+        .logout-btn:hover { background: #222; }
+
+        /* Main Content */
+        .main-content { flex: 1; overflow-y: auto; padding: 30px; background: radial-gradient(circle at top right, #1f1f1f, #0f0f0f); }
+        
+        .section-header { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+        .section-title { font-family: 'Bebas Neue'; font-size: 2rem; }
+
+        /* --- Dashboard Stats --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card {
+            background: var(--glass); border: 1px solid #333; padding: 20px; border-radius: 8px;
+            display: flex; align-items: center; gap: 20px; transition: 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+        .stat-icon { font-size: 2rem; color: var(--primary); }
+        .stat-info h3 { font-size: 2rem; margin-bottom: 5px; }
+        .stat-info p { color: #aaa; font-size: 0.9rem; }
+
+        /* --- Movie Grid --- */
+        .movie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .movie-card {
+            background: #1a1a1a; border-radius: 8px; overflow: hidden; position: relative;
+            transition: 0.3s; border: 1px solid #333;
+        }
+        .movie-card:hover { transform: scale(1.03); box-shadow: 0 5px 15px rgba(0,0,0,0.5); border-color: var(--primary); }
+        .movie-poster { width: 100%; height: 300px; object-fit: cover; }
+        .movie-info { padding: 15px; }
+        .movie-title { font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .movie-meta { font-size: 0.8rem; color: #aaa; display: flex; justify-content: space-between; }
+        .movie-actions {
+            position: absolute; top: 10px; right: 10px; display: flex; gap: 5px; opacity: 0; transition: 0.3s;
+        }
+        .movie-card:hover .movie-actions { opacity: 1; }
+        .action-btn {
+            background: rgba(0,0,0,0.7); color: #fff; border: none; width: 30px; height: 30px;
+            border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center;
+        }
+        .action-btn:hover { background: var(--primary); }
+
+        /* --- User Table --- */
+        .user-table { width: 100%; border-collapse: collapse; background: #1a1a1a; border-radius: 8px; overflow: hidden; }
+        .user-table th, .user-table td { padding: 15px; text-align: left; border-bottom: 1px solid #333; }
+        .user-table th { background: #222; color: var(--primary); text-transform: uppercase; font-size: 0.8rem; }
+        .user-status { padding: 5px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+        .status-active { background: rgba(0, 255, 0, 0.1); color: #0f0; }
+        .status-blocked { background: rgba(255, 0, 0, 0.1); color: #f00; }
+
+        /* --- Modal --- */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: #1a1a1a; width: 500px; padding: 30px; border-radius: 10px;
+            border: 1px solid #333; animation: fadeIn 0.3s; max-height: 90vh; overflow-y: auto;
+        }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .full-width { grid-column: span 2; }
+        .close-modal { float: right; cursor: pointer; font-size: 1.5rem; }
+
+        /* --- Toast Notification --- */
+        #toast {
+            position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff;
+            padding: 15px 25px; border-radius: 5px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000;
+        }
+        #toast.show { opacity: 1; transform: translateY(-10px); }
+        #toast.success { border-left: 5px solid #0f0; }
+        #toast.error { border-left: 5px solid #f00; }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            #admin-panel { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid #333; }
+            .nav-links { display: flex; overflow-x: auto; padding: 10px; }
+            .nav-links li { padding: 10px; font-size: 0.9rem; white-space: nowrap; }
+            .logout-btn { display: none; } /* Move logout to top or handle differently on mobile */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-box">
+            <h1>CineAR <span style="font-size:1rem; color:#fff">Admin</span></h1>
+            <form id="login-form">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="admin-email" required>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="admin-password" required>
+                </div>
+                <button type="submit" class="btn-primary">Enter Studio</button>
+            </form>
+            <div class="forgot-pass" onclick="resetPassword()">Forgot Password?</div>
+        </div>
+    </div>
+
+    <div id="admin-panel">
+        <aside class="sidebar">
+            <div class="brand">
+                <h2>CineAR</h2>
+            </div>
+            <ul class="nav-links">
+                <li onclick="showSection('dashboard')" class="active"><i class="fas fa-chart-line"></i> Dashboard</li>
+                <li onclick="showSection('movies')"><i class="fas fa-film"></i> Movies</li>
+                <li onclick="showSection('users')"><i class="fas fa-users"></i> Users</li>
+                <li onclick="showSection('settings')"><i class="fas fa-cog"></i> Settings</li>
+            </ul>
+            <div class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> LOGOUT
+            </div>
+        </aside>
+
+        <main class="main-content">
+            
+            <section id="dashboard-section">
+                <div class="section-header">
+                    <h2 class="section-title">Studio Overview</h2>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-video"></i></div>
+                        <div class="stat-info">
+                            <h3 id="total-movies">0</h3>
+                            <p>Total Movies</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div class="stat-info">
+                            <h3 id="total-users">0</h3>
+                            <p>Registered Users</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-tags"></i></div>
+                        <div class="stat-info">
+                            <h3 id="total-genres">0</h3>
+                            <p>Active Genres</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3>Recent Activity</h3>
+                <p style="color: #666; font-size: 0.9rem;">System running smoothly. Ads monitored by Monetag.</p>
+            </section>
+
+            <section id="movies-section" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">Movie Library</h2>
+                    <button class="btn-primary" style="width: auto; padding: 10px 20px;" onclick="openModal()">+ Add Movie</button>
+                </div>
+                <div class="movie-grid" id="movie-list">
+                    </div>
+            </section>
+
+            <section id="users-section" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">User Management</h2>
+                </div>
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Joined</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-list-body">
+                        </tbody>
+                </table>
+            </section>
+
+            <section id="settings-section" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">Settings</h2>
+                </div>
+                <p>Platform Configuration. Currently V1.0.</p>
+                <br>
+                <button class="btn-primary" style="background: #333; width: auto;" onclick="alert('System is up to date')">Check for Updates</button>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="movie-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title" style="margin-bottom: 20px;">Add New Movie</h2>
+            <form id="movie-form">
+                <input type="hidden" id="movie-id"> <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label>Movie Title</label>
+                        <input type="text" id="m-title" required>
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Description</label>
+                        <input type="text" id="m-desc" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Genre</label>
+                        <select id="m-genre" style="width: 100%; padding: 10px; background: #222; border: 1px solid #333; color: white; border-radius: 4px;">
+                            <option value="Action">Action</option>
+                            <option value="Comedy">Comedy</option>
+                            <option value="Drama">Drama</option>
+                            <option value="Horror">Horror</option>
+                            <option value="Sci-Fi">Sci-Fi</option>
+                            <option value="Romance">Romance</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Release Year</label>
+                        <input type="number" id="m-year" required>
+                    </div>
+                    <div class="input-group">
+                        <label>IMDb Rating</label>
+                        <input type="number" step="0.1" id="m-rating" required>
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Poster Image URL</label>
+                        <input type="url" id="m-poster" placeholder="https://..." required>
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Trailer URL</label>
+                        <input type="url" id="m-trailer" placeholder="https://youtube.com/..." required>
+                    </div>
+                    <div class="input-group full-width">
+                        <label>Download/Stream Link</label>
+                        <input type="url" id="m-link" placeholder="https://..." required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top: 15px;">Save Movie</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast">
+        <i class="fas fa-info-circle"></i>
+        <span id="toast-msg">Notification</span>
+    </div>
+
+    <script type="module">
+        // Import Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBHALg0FHQFIBH6K9GLjWmj3SL0bX_GRwA",
+            authDomain: "movisa-e9c7b.firebaseapp.com",
+            databaseURL: "https://movisa-e9c7b-default-rtdb.firebaseio.com",
+            projectId: "movisa-e9c7b",
+            storageBucket: "movisa-e9c7b.firebasestorage.app",
+            messagingSenderId: "102627126358",
+            appId: "1:102627126358:web:180aab3702747f99689ff7"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- Auth Logic ---
+        const loginScreen = document.getElementById('login-screen');
+        const adminPanel = document.getElementById('admin-panel');
+
+        // Check Auth State
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginScreen.style.display = 'none';
+                adminPanel.style.display = 'flex'; // Fix display
+                loadDashboard();
+            } else {
+                loginScreen.style.display = 'flex';
+                adminPanel.style.display = 'none';
+            }
+        });
+
+        // Login Function
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('admin-email').value;
+            const pass = document.getElementById('admin-password').value;
+            
+            signInWithEmailAndPassword(auth, email, pass)
+                .then(() => showToast('Welcome back, Director!', 'success'))
+                .catch((error) => showToast(error.message, 'error'));
+        });
+
+        // Logout
+        window.logout = () => {
+            signOut(auth).then(() => showToast('Logged out successfully', 'success'));
+        };
+
+        // Reset Password
+        window.resetPassword = () => {
+            const email = prompt("Enter your admin email to reset password:");
+            if(email) {
+                sendPasswordResetEmail(auth, email)
+                    .then(() => showToast('Reset link sent!', 'success'))
+                    .catch((err) => showToast(err.message, 'error'));
+            }
+        }
+
+        // --- Movie Management Logic ---
+        const movieForm = document.getElementById('movie-form');
+        const movieList = document.getElementById('movie-list');
+
+        // Add / Update Movie
+        movieForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('movie-id').value;
+            const movieData = {
+                title: document.getElementById('m-title').value,
+                desc: document.getElementById('m-desc').value,
+                genre: document.getElementById('m-genre').value,
+                year: document.getElementById('m-year').value,
+                rating: document.getElementById('m-rating').value,
+                poster: document.getElementById('m-poster').value,
+                trailer: document.getElementById('m-trailer').value,
+                link: document.getElementById('m-link').value,
+                addedAt: new Date()
+            };
+
+            try {
+                if (id) {
+                    await updateDoc(doc(db, "movies", id), movieData);
+                    showToast('Movie Updated Successfully', 'success');
+                } else {
+                    await addDoc(collection(db, "movies"), movieData);
+                    showToast('Movie Added to Library', 'success');
+                }
+                closeModal();
+            } catch (err) {
+                showToast('Error saving movie: ' + err.message, 'error');
+            }
+        });
+
+        // Realtime Movie Listener
+        const q = query(collection(db, "movies"), orderBy("addedAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            movieList.innerHTML = '';
+            let totalMovies = 0;
+            let genres = new Set();
+
+            snapshot.forEach((doc) => {
+                const m = doc.data();
+                totalMovies++;
+                genres.add(m.genre);
+                
+                const card = document.createElement('div');
+                card.className = 'movie-card';
+                card.innerHTML = `
+                    <img src="${m.poster}" class="movie-poster" alt="${m.title}" onerror="this.src='https://via.placeholder.com/200x300?text=No+Image'">
+                    <div class="movie-info">
+                        <div class="movie-title">${m.title}</div>
+                        <div class="movie-meta">
+                            <span>${m.year}</span>
+                            <span>⭐ ${m.rating}</span>
+                        </div>
+                    </div>
+                    <div class="movie-actions">
+                        <button class="action-btn" onclick="editMovie('${doc.id}', '${m.title}', '${m.desc}', '${m.genre}', '${m.year}', '${m.rating}', '${m.poster}', '${m.trailer}', '${m.link}')"><i class="fas fa-edit"></i></button>
+                        <button class="action-btn" onclick="deleteMovie('${doc.id}')" style="background:rgba(255,0,0,0.7)"><i class="fas fa-trash"></i></button>
+                    </div>
+                `;
+                movieList.appendChild(card);
+            });
+
+            // Update Stats
+            document.getElementById('total-movies').innerText = totalMovies;
+            document.getElementById('total-genres').innerText = genres.size;
+        });
+
+        // Delete Movie
+        window.deleteMovie = async (id) => {
+            if(confirm('Are you sure you want to delete this movie?')) {
+                await deleteDoc(doc(db, "movies", id));
+                showToast('Movie Deleted', 'success');
+            }
+        }
+
+        // Edit Movie (Populate Modal)
+        window.editMovie = (id, title, desc, genre, year, rating, poster, trailer, link) => {
+            document.getElementById('movie-id').value = id;
+            document.getElementById('m-title').value = title;
+            document.getElementById('m-desc').value = desc;
+            document.getElementById('m-genre').value = genre;
+            document.getElementById('m-year').value = year;
+            document.getElementById('m-rating').value = rating;
+            document.getElementById('m-poster').value = poster;
+            document.getElementById('m-trailer').value = trailer;
+            document.getElementById('m-link').value = link;
+            
+            document.getElementById('modal-title').innerText = "Edit Movie";
+            openModal();
+        }
+
+        // --- User Management Logic ---
+        // Note: Firebase Auth list isn't directly accessible in Client SDK.
+        // We assume users are stored in 'users' collection in Firestore upon registration.
+        function loadUsers() {
+            onSnapshot(collection(db, "users"), (snapshot) => {
+                const tbody = document.getElementById('user-list-body');
+                tbody.innerHTML = '';
+                let count = 0;
+
+                snapshot.forEach((docSnap) => {
+                    const u = docSnap.data();
+                    count++;
+                    const row = `
+                        <tr>
+                            <td>${u.name || 'Anonymous'}</td>
+                            <td>${u.email || 'N/A'}</td>
+                            <td>${u.joined ? new Date(u.joined.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
+                            <td><span class="user-status ${u.blocked ? 'status-blocked' : 'status-active'}">${u.blocked ? 'Blocked' : 'Active'}</span></td>
+                            <td>
+                                <button class="action-btn" onclick="toggleBlockUser('${docSnap.id}', ${u.blocked})">
+                                    <i class="fas ${u.blocked ? 'fa-check' : 'fa-ban'}"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+                document.getElementById('total-users').innerText = count;
+            });
+        }
+        
+        window.toggleBlockUser = async (id, currentStatus) => {
+            const newStatus = !currentStatus; // Toggle
+            await updateDoc(doc(db, "users", id), { blocked: newStatus });
+            showToast(newStatus ? 'User Blocked' : 'User Unblocked', 'success');
+        }
+
+        // --- Navigation Logic ---
+        window.showSection = (id) => {
+            const sections = ['dashboard', 'movies', 'users', 'settings'];
+            sections.forEach(sec => {
+                document.getElementById(sec + '-section').style.display = (sec === id) ? 'block' : 'none';
+            });
+            
+            // Update Active Nav
+            document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
+            event.currentTarget.classList.add('active'); // Assumes onclick passes event, fixed below
+        }
+        
+        // Add event listeners for nav to handle "active" class visually
+        document.querySelectorAll('.nav-links li').forEach(li => {
+            li.addEventListener('click', function() {
+                document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Initialize Data
+        function loadDashboard() {
+            loadUsers();
+        }
+
+        // --- UI Utilities ---
+        window.openModal = () => {
+            document.getElementById('movie-modal').style.display = 'flex';
+            if(!document.getElementById('movie-id').value) {
+                document.getElementById('movie-form').reset();
+                document.getElementById('modal-title').innerText = "Add New Movie";
+            }
+        }
+        window.closeModal = () => {
+            document.getElementById('movie-modal').style.display = 'none';
+            document.getElementById('movie-id').value = ''; // clear ID
+        }
+        
+        window.showToast = (msg, type) => {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.className = type + ' show'; // success or error
+            setTimeout(() => { toast.className = ''; }, 3000);
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('movie-modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

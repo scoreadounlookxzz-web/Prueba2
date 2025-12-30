@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CineAR | Stream Movies</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <script src='//libtl.com/sdk.js' data-zone='10297947' data-sdk='show_10297947'></script>
+
+    <style>
+        :root {
+            --primary: #00d4ff; /* Neon Cyan */
+            --secondary: #7000ff; /* Neon Purple */
+            --bg-dark: #050505;
+            --bg-card: #121212;
+            --text-main: #ffffff;
+            --text-muted: #a1a1a1;
+            --gradient: linear-gradient(135deg, var(--secondary), var(--primary));
+            --glass: rgba(20, 20, 20, 0.8);
+            --nav-height: 60px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow-x: hidden;
+            padding-bottom: 70px; /* Space for bottom nav */
+        }
+
+        /* --- Scrollbar --- */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+        /* --- Animations --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 rgba(0, 212, 255, 0.4); } 70% { box-shadow: 0 0 20px rgba(0, 212, 255, 0); } 100% { box-shadow: 0 0 0 rgba(0, 212, 255, 0); } }
+
+        /* --- Auth Screen --- */
+        #auth-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: radial-gradient(circle at center, #1a0b2e, #000);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; padding: 20px;
+        }
+        .logo-large {
+            font-size: 3rem; font-weight: 800; background: var(--gradient);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 10px; letter-spacing: -1px;
+        }
+        .auth-box {
+            background: rgba(255,255,255,0.05); padding: 30px; border-radius: 20px;
+            backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);
+            width: 100%; max-width: 350px; text-align: center;
+            animation: slideUp 0.6s ease;
+        }
+        .auth-btn {
+            background: var(--gradient); border: none; padding: 14px; width: 100%;
+            border-radius: 12px; color: white; font-weight: 600; font-size: 1rem;
+            margin-top: 15px; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(112, 0, 255, 0.3);
+        }
+        .auth-btn:active { transform: scale(0.96); }
+        .auth-btn.secondary { background: #333; box-shadow: none; margin-top: 10px; }
+        
+        .input-field {
+            width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid #333;
+            border-radius: 10px; color: white; margin-bottom: 10px; outline: none;
+        }
+        .input-field:focus { border-color: var(--primary); }
+
+        /* --- App Container --- */
+        #app-container { display: none; }
+
+        /* --- Navbar (Top) --- */
+        .top-nav {
+            padding: 20px; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100; background: linear-gradient(180deg, rgba(5,5,5,0.95), rgba(5,5,5,0));
+        }
+        .logo-small { font-weight: 800; font-size: 1.5rem; color: white; letter-spacing: -1px; }
+        .logo-small span { color: var(--primary); }
+        .search-icon { font-size: 1.2rem; color: white; cursor: pointer; }
+
+        /* --- Hero Section --- */
+        .hero {
+            position: relative; height: 50vh; width: 100%;
+            display: flex; align-items: flex-end; padding: 20px;
+            margin-bottom: 20px;
+        }
+        .hero-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: -1; mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+        }
+        .hero-content { z-index: 1; max-width: 600px; animation: slideUp 0.8s ease; }
+        .hero-tag {
+            background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px;
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;
+            backdrop-filter: blur(5px); display: inline-block; margin-bottom: 10px;
+        }
+        .hero-title { font-size: 2.5rem; line-height: 1.1; margin-bottom: 10px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        .play-btn-hero {
+            background: white; color: black; border: none; padding: 10px 24px;
+            border-radius: 30px; font-weight: 700; cursor: pointer; display: inline-flex;
+            align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .play-btn-hero:active { transform: scale(0.95); }
+
+        /* --- Categories & Filters --- */
+        .category-scroll {
+            display: flex; gap: 10px; overflow-x: auto; padding: 0 20px 20px 20px;
+            scrollbar-width: none; /* Firefox */
+        }
+        .category-scroll::-webkit-scrollbar { display: none; }
+        .cat-pill {
+            padding: 8px 16px; background: #1a1a1a; border-radius: 20px; white-space: nowrap;
+            color: #aaa; font-size: 0.9rem; border: 1px solid #333; cursor: pointer; transition: 0.3s;
+        }
+        .cat-pill.active { background: var(--gradient); color: white; border: none; box-shadow: 0 0 10px rgba(0, 212, 255, 0.4); }
+
+        /* --- Search Bar --- */
+        #search-container {
+            padding: 0 20px 20px 20px; display: none; animation: fadeIn 0.3s;
+        }
+        #search-input {
+            width: 100%; padding: 15px; background: #1a1a1a; border: 1px solid #333;
+            border-radius: 12px; color: white; font-size: 1rem; outline: none;
+        }
+
+        /* --- Sections --- */
+        .section-title { padding: 0 20px; margin-bottom: 15px; font-size: 1.2rem; font-weight: 600; }
+        
+        /* --- Movie Grid --- */
+        .movie-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px; padding: 0 20px 80px 20px; /* Bottom padding for nav */
+        }
+        .movie-card {
+            position: relative; border-radius: 12px; overflow: hidden;
+            background: var(--bg-card); cursor: pointer; transition: 0.3s;
+            aspect-ratio: 2/3;
+        }
+        .movie-card img { width: 100%; height: 100%; object-fit: cover; transition: 0.5s; }
+        .movie-card:hover img { transform: scale(1.1); opacity: 0.6; }
+        
+        /* Movie Info Below Thumbnail */
+        .movie-info {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            padding: 10px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+        }
+        .card-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-meta { font-size: 0.7rem; color: var(--primary); }
+        
+        /* Hover Overlay (Optional - for additional info on hover) */
+        .card-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            padding: 10px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            opacity: 0; transition: 0.3s;
+        }
+        .movie-card:hover .card-overlay { opacity: 1; }
+
+        /* --- Movie Details Modal --- */
+        #movie-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1000;
+            background: #000; overflow-y: auto; display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .modal-hero {
+            position: relative; height: 40vh; width: 100%;
+        }
+        .modal-poster {
+            width: 100%; height: 100%; object-fit: cover;
+            mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+        }
+        .close-btn {
+            position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.5);
+            width: 40px; height: 40px; border-radius: 50%; color: white;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+            backdrop-filter: blur(5px); z-index: 2; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .modal-content { padding: 20px; margin-top: -60px; position: relative; z-index: 2; }
+        .modal-title { font-size: 2rem; font-weight: 800; margin-bottom: 10px; }
+        .modal-tags { display: flex; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #ccc; }
+        .tag { background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; }
+        
+        .action-row { display: flex; gap: 15px; margin-bottom: 30px; }
+        .btn-play {
+            flex: 1; background: var(--gradient); border: none; padding: 15px; border-radius: 12px;
+            color: white; font-weight: 700; font-size: 1rem; cursor: pointer;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            animation: pulse 2s infinite;
+        }
+        .btn-unlock {
+            flex: 1; background: #222; border: 1px solid #444; color: white; 
+            border-radius: 12px; padding: 15px; font-weight: 700; font-size: 1rem;
+            cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;
+        }
+        .btn-download {
+            flex: 1; background: var(--gradient); border: none; padding: 15px; border-radius: 12px;
+            color: white; font-weight: 700; font-size: 1rem; cursor: pointer;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .modal-desc { line-height: 1.6; color: #ccc; margin-bottom: 30px; font-size: 0.95rem; }
+
+        /* --- Profile Page --- */
+        #profile-section { display: none; padding: 20px; text-align: center; animation: slideUp 0.4s; }
+        .avatar {
+            width: 100px; height: 100px; background: #333; border-radius: 50%; margin: 0 auto 20px;
+            display: flex; justify-content: center; align-items: center; font-size: 2.5rem; color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        .user-name { font-size: 1.5rem; margin-bottom: 5px; }
+        .user-email { color: #888; margin-bottom: 30px; }
+
+        /* --- Bottom Nav --- */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 65px;
+            background: rgba(10, 10, 10, 0.95); backdrop-filter: blur(10px);
+            display: flex; justify-content: space-around; align-items: center;
+            border-top: 1px solid #222; z-index: 500;
+        }
+        .nav-item {
+            color: #666; font-size: 0.7rem; display: flex; flex-direction: column;
+            align-items: center; gap: 5px; cursor: pointer; transition: 0.3s;
+        }
+        .nav-item i { font-size: 1.2rem; margin-bottom: 2px; }
+        .nav-item.active { color: var(--primary); }
+
+        /* --- Toast --- */
+        #toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #333; color: white; padding: 12px 24px; border-radius: 30px;
+            font-size: 0.9rem; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 2000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); white-space: nowrap;
+        }
+        #toast.show { opacity: 1; top: 40px; }
+
+        /* Loader */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--primary);
+            border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite;
+            display: none; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Cooldown Timer */
+        .cooldown-timer {
+            background: rgba(255, 0, 0, 0.2); border: 1px solid #ff4444; color: #ff8888;
+            border-radius: 8px; padding: 8px; text-align: center; margin-top: 10px;
+            font-size: 0.9rem; display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen">
+        <div class="logo-large">CineAR</div>
+        <p style="color:#aaa; margin-bottom:30px;">Cinematic Augmented Reality Streaming</p>
+        
+        <div class="auth-box">
+            <h3 style="margin-bottom:15px; color:white;" id="auth-title">Welcome</h3>
+            <div id="email-auth-form">
+                <input type="email" id="u-email" class="input-field" placeholder="Email Address">
+                <input type="password" id="u-pass" class="input-field" placeholder="Password">
+                <button class="auth-btn" onclick="handleEmailLogin()">Sign In</button>
+                <button class="auth-btn secondary" onclick="handleSignUp()">Create Account</button>
+                <p style="margin:15px 0; font-size:0.8rem; color:#666;">OR</p>
+            </div>
+            <button class="auth-btn" style="background: #2AABEE;" onclick="handleTelegramAuth()">
+                <i class="fab fa-telegram-plane"></i> Continue with Telegram
+            </button>
+            <button class="auth-btn secondary" onclick="handleAnonymousAuth()">Skip (Guest Mode)</button>
+        </div>
+    </div>
+
+    <div id="app-container">
+        
+        <div class="top-nav">
+            <div class="logo-small">Cine<span>AR</span></div>
+            <i class="fas fa-search search-icon" onclick="toggleSearch()"></i>
+        </div>
+
+        <div id="search-container">
+            <input type="text" id="search-input" placeholder="Search movies, genres..." onkeyup="filterMovies()">
+        </div>
+
+        <div id="home-view">
+            <div class="hero" id="hero-section">
+                <img src="" class="hero-bg" id="hero-img">
+                <div class="hero-content">
+                    <div class="hero-tag">Featured</div>
+                    <h1 class="hero-title" id="hero-title">Loading...</h1>
+                    <button class="play-btn-hero" id="hero-play-btn"><i class="fas fa-play"></i> Watch Now</button>
+                </div>
+            </div>
+
+            <div class="section-title">Categories</div>
+            <div class="category-scroll">
+                <div class="cat-pill active" onclick="filterCategory('All')">All</div>
+                <div class="cat-pill" onclick="filterCategory('Action')">Action</div>
+                <div class="cat-pill" onclick="filterCategory('Sci-Fi')">Sci-Fi</div>
+                <div class="cat-pill" onclick="filterCategory('Drama')">Drama</div>
+                <div class="cat-pill" onclick="filterCategory('Horror')">Horror</div>
+                <div class="cat-pill" onclick="filterCategory('Comedy')">Comedy</div>
+            </div>
+
+            <div class="section-title" id="grid-title">Trending Now</div>
+            <div class="loader" id="loader"></div>
+            <div class="movie-grid" id="movie-grid">
+                <!-- Movie cards will be injected here -->
+            </div>
+        </div>
+
+        <div id="profile-section">
+            <div class="avatar"><i class="fas fa-user"></i></div>
+            <h2 class="user-name" id="profile-name">User</h2>
+            <p class="user-email" id="profile-email">user@cinear.com</p>
+            
+            <button class="auth-btn secondary" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Log Out
+            </button>
+            
+            <div style="margin-top: 50px; color: #444; font-size: 0.8rem;">
+                CineAR v1.0.2<br>Powered by Firebase
+            </div>
+        </div>
+
+    </div>
+
+    <div class="bottom-nav" id="bottom-nav" style="display:none;">
+        <div class="nav-item active" onclick="switchTab('home')">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('search')">
+            <i class="fas fa-compass"></i>
+            <span>Explore</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('profile')">
+            <i class="fas fa-user"></i>
+            <span>Profile</span>
+        </div>
+    </div>
+
+    <div id="movie-modal">
+        <div class="modal-hero">
+            <img src="" class="modal-poster" id="detail-poster">
+            <div class="close-btn" onclick="closeModal()"><i class="fas fa-times"></i></div>
+        </div>
+        <div class="modal-content">
+            <!-- MOVIE TITLE SHOWING HERE -->
+            <h1 class="modal-title" id="detail-title">Movie Title</h1>
+            <div class="modal-tags">
+                <span class="tag" id="detail-year">2023</span>
+                <span class="tag" id="detail-genre">Action</span>
+                <span class="tag" style="color: gold;"><i class="fas fa-star"></i> <span id="detail-rating">8.5</span></span>
+            </div>
+            
+            <div class="action-row">
+                <button class="btn-play" id="play-trailer-btn">
+                    <i class="fas fa-play"></i> Watch Trailer
+                </button>
+                
+                <!-- এড বাটন (Unlock 0/5) -->
+                <button class="btn-unlock" id="ad-unlock-btn">
+                    <i class="fas fa-lock"></i> <span id="ad-count-text">Download Unlock (0/5)</span>
+                </button>
+                
+                <!-- ডাউনলোড বাটন (Trailer button মত) -->
+                <a id="download-link" href="#" target="_blank" class="btn-download" style="display: none;">
+                    <i class="fas fa-download"></i> <span>Download Now</span>
+                </a>
+            </div>
+
+            <!-- Cooldown Timer -->
+            <div id="cooldown-timer" class="cooldown-timer">
+                <i class="fas fa-clock"></i> Wait <span id="cooldown-seconds">10</span>s before next ad
+            </div>
+
+            <p class="modal-desc" id="detail-desc">
+                Movie description goes here...
+            </p>
+        </div>
+    </div>
+
+    <div id="toast">Message</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBHALg0FHQFIBH6K9GLjWmj3SL0bX_GRwA",
+            authDomain: "movisa-e9c7b.firebaseapp.com",
+            databaseURL: "https://movisa-e9c7b-default-rtdb.firebaseio.com",
+            projectId: "movisa-e9c7b",
+            storageBucket: "movisa-e9c7b.firebasestorage.app",
+            messagingSenderId: "102627126358",
+            appId: "1:102627126358:web:180aab3702747f99689ff7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- Global Variables ---
+        let allMovies = [];
+        let currentUser = null;
+        let currentMovieId = "";
+        let currentMovieLink = "";
+        let adCounts = {};
+        let downloadTimestamps = {};
+        let adCooldown = null;
+        let canWatchAd = true;
+        let adTimeout = null;
+
+        // --- Get Ad Count from localStorage ---
+        function getAdCount(movieId) {
+            if (!adCounts[movieId]) {
+                const saved = localStorage.getItem(`ad_count_${movieId}`);
+                adCounts[movieId] = saved ? parseInt(saved) : 0;
+            }
+            return adCounts[movieId];
+        }
+
+        // --- Check if downloaded recently ---
+        function hasDownloadedRecently(movieId) {
+            const timestamp = localStorage.getItem(`download_time_${movieId}`);
+            if (!timestamp) return false;
+            
+            const now = Date.now();
+            const lastDownload = parseInt(timestamp);
+            const hoursSinceDownload = (now - lastDownload) / (1000 * 60 * 60);
+            
+            // যদি 24 ঘন্টার মধ্যে ডাউনলোড করে থাকে, তাহলে আবার এড দেখাতে হবে
+            return hoursSinceDownload < 24;
+        }
+
+        // --- FIXED: Update Ad Count Display ---
+        function updateAdDisplay() {
+            const count = getAdCount(currentMovieId);
+            const adBtn = document.getElementById('ad-unlock-btn');
+            const downloadLink = document.getElementById('download-link');
+            const cooldownTimer = document.getElementById('cooldown-timer');
+            
+            console.log("Update display. Current count:", count, "Movie ID:", currentMovieId);
+            
+            // যদি কাউন্ট ৫ বা তার বেশি হয়, ৫ এ সেট করো
+            if (count >= 5) {
+                adCounts[currentMovieId] = 5;
+                localStorage.setItem(`ad_count_${currentMovieId}`, 5);
+                
+                //Download  Unlocked - show download button
+                console.log("Count >= 5, showing download button");
+                adBtn.style.display = 'none';
+                downloadLink.style.display = 'flex';
+                downloadLink.href = currentMovieLink;
+                cooldownTimer.style.display = 'none';
+            } else {
+                // Locked - show ad button
+                console.log("Count < 5, showing ad button");
+                adBtn.style.display = 'flex';
+                downloadLink.style.display = 'none';
+                document.getElementById('ad-count-text').textContent = `Unlock (${count}/5)`;
+                
+                if (!canWatchAd) {
+                    adBtn.disabled = true;
+                    adBtn.style.opacity = '0.6';
+                    cooldownTimer.style.display = 'block';
+                } else {
+                    adBtn.disabled = false;
+                    adBtn.style.opacity = '1';
+                    cooldownTimer.style.display = 'none';
+                }
+            }
+        }
+
+        // --- Telegram Integration Logic ---
+        window.handleTelegramAuth = () => {
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+                const user = window.Telegram.WebApp.initDataUnsafe.user;
+                if(user) {
+                    signInAnonymously(auth).then(async (cred) => {
+                        await setDoc(doc(db, "users", cred.user.uid), {
+                            name: user.first_name + (user.last_name ? ' ' + user.last_name : ''),
+                            telegramId: user.id,
+                            joined: new Date(),
+                            blocked: false
+                        });
+                        updateProfile(cred.user, { displayName: user.first_name });
+                        showToast("Synced with Telegram!");
+                    }).catch(err => showToast(err.message));
+                }
+            } else {
+                showToast("Telegram not detected. Using Guest Mode.");
+                handleAnonymousAuth();
+            }
+        };
+
+        // --- Auth Functions ---
+        window.handleEmailLogin = () => {
+            const email = document.getElementById('u-email').value;
+            const pass = document.getElementById('u-pass').value;
+            if(!email || !pass) return showToast("Enter email and password");
+            
+            signInWithEmailAndPassword(auth, email, pass)
+                .catch(err => showToast("Login Failed: " + err.message));
+        };
+
+        window.handleSignUp = () => {
+            const email = document.getElementById('u-email').value;
+            const pass = document.getElementById('u-pass').value;
+            if(!email || !pass) return showToast("Enter email and password");
+
+            createUserWithEmailAndPassword(auth, email, pass)
+                .then(async (cred) => {
+                    await setDoc(doc(db, "users", cred.user.uid), {
+                        email: email,
+                        joined: new Date(),
+                        blocked: false
+                    });
+                    showToast("Account Created!");
+                })
+                .catch(err => showToast(err.message));
+        };
+
+        window.handleAnonymousAuth = () => {
+            signInAnonymously(auth).catch(err => showToast(err.message));
+        };
+
+        window.logout = () => {
+            signOut(auth).then(() => {
+                location.reload();
+            });
+        };
+
+        // --- Auth State Listener ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-container').style.display = 'block';
+                document.getElementById('bottom-nav').style.display = 'flex';
+                
+                document.getElementById('profile-name').innerText = user.displayName || "CineAR User";
+                document.getElementById('profile-email').innerText = user.email || "Guest Account";
+                
+                fetchMovies();
+            } else {
+                document.getElementById('auth-screen').style.display = 'flex';
+                document.getElementById('app-container').style.display = 'none';
+                document.getElementById('bottom-nav').style.display = 'none';
+            }
+        });
+
+        // --- Movie Data Logic ---
+        function fetchMovies() {
+            document.getElementById('loader').style.display = 'block';
+            const q = query(collection(db, "movies"), orderBy("addedAt", "desc"));
+            
+            onSnapshot(q, (snapshot) => {
+                allMovies = [];
+                snapshot.forEach(doc => {
+                    allMovies.push({ id: doc.id, ...doc.data() });
+                });
+                document.getElementById('loader').style.display = 'none';
+                renderMovies(allMovies);
+                setHeroMovie(allMovies[0]);
+            });
+        }
+
+        function renderMovies(movies) {
+            const grid = document.getElementById('movie-grid');
+            grid.innerHTML = '';
+            
+            if(movies.length === 0) {
+                grid.innerHTML = '<p style="color:#666; width:100%; text-align:center;">No movies found.</p>';
+                return;
+            }
+
+            movies.forEach(movie => {
+                const el = document.createElement('div');
+                el.className = 'movie-card';
+                el.innerHTML = `
+                    <img src="${movie.poster}" onerror="this.src='https://via.placeholder.com/200x300?text=No+Img'">
+                    <div class="movie-info">
+                        <div class="card-title">${movie.title}</div>
+                        <div class="card-meta">${movie.year} • ${movie.genre}</div>
+                    </div>
+                    <div class="card-overlay">
+                        <div class="card-title">${movie.title}</div>
+                        <div class="card-meta">${movie.year} • ${movie.genre} • ⭐${movie.rating}</div>
+                    </div>
+                `;
+                el.onclick = () => openDetails(movie);
+                grid.appendChild(el);
+            });
+        }
+
+        function setHeroMovie(movie) {
+            if(!movie) return;
+            const heroImg = document.getElementById('hero-img');
+            heroImg.style.opacity = '0';
+            setTimeout(() => {
+                heroImg.src = movie.poster;
+                heroImg.style.opacity = '1';
+                // শুধু মুভির title দেখানো
+                document.getElementById('hero-title').innerText = movie.title;
+                document.getElementById('hero-play-btn').onclick = () => openDetails(movie);
+            }, 300);
+        }
+
+        // --- Filtering & Search ---
+        window.filterCategory = (cat) => {
+            document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if(cat === 'All') {
+                renderMovies(allMovies);
+            } else {
+                const filtered = allMovies.filter(m => m.genre === cat);
+                renderMovies(filtered);
+            }
+        };
+
+        window.filterMovies = () => {
+            const term = document.getElementById('search-input').value.toLowerCase();
+            const filtered = allMovies.filter(m => 
+                m.title.toLowerCase().includes(term) || m.genre.toLowerCase().includes(term)
+            );
+            renderMovies(filtered);
+        };
+
+        window.toggleSearch = () => {
+            const searchContainer = document.getElementById('search-container');
+            if(searchContainer.style.display === 'block') {
+                searchContainer.style.display = 'none';
+            } else {
+                searchContainer.style.display = 'block';
+                document.getElementById('search-input').focus();
+            }
+        };
+
+        // --- UI Navigation ---
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            if(tab === 'home') {
+                document.getElementById('home-view').style.display = 'block';
+                document.getElementById('profile-section').style.display = 'none';
+            } else if (tab === 'profile') {
+                document.getElementById('home-view').style.display = 'none';
+                document.getElementById('profile-section').style.display = 'block';
+            } else if (tab === 'search') {
+                document.getElementById('home-view').style.display = 'block';
+                document.getElementById('profile-section').style.display = 'none';
+                toggleSearch();
+            }
+        };
+
+        // --- Cooldown Timer ---
+        function startCooldown() {
+            canWatchAd = false;
+            let seconds = 10;
+            const cooldownTimer = document.getElementById('cooldown-timer');
+            const countdownElement = document.getElementById('cooldown-seconds');
+            const adBtn = document.getElementById('ad-unlock-btn');
+            
+            cooldownTimer.style.display = 'block';
+            adBtn.disabled = true;
+            adBtn.style.opacity = '0.6';
+            
+            adCooldown = setInterval(() => {
+                seconds--;
+                countdownElement.textContent = seconds;
+                
+                if (seconds <= 0) {
+                    clearInterval(adCooldown);
+                    canWatchAd = true;
+                    cooldownTimer.style.display = 'none';
+                    adBtn.disabled = false;
+                    adBtn.style.opacity = '1';
+                }
+            }, 1000);
+        }
+
+        // --- FIXED: Watch Ad Function (Stops at 5) ---
+        async function watchAd() {
+            if (!canWatchAd) return;
+            
+            const adBtn = document.getElementById('ad-unlock-btn');
+            let currentCount = getAdCount(currentMovieId);
+            
+            // যদি ইতিমধ্যেই ৫ হয়, তাহলে আর এড দেখাবে না
+            if (currentCount >= 5) {
+                updateAdDisplay();
+                showToast("Already unlocked! Click download button.");
+                return;
+            }
+            
+            try {
+                // Show loading state
+                adBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+                adBtn.disabled = true;
+                
+                // Clear any existing timeout
+                if (adTimeout) clearTimeout(adTimeout);
+                
+                // Show ad with timeout
+                const adPromise = show_10297947();
+                
+                // Set timeout for ad loading (15 seconds)
+                adTimeout = setTimeout(() => {
+                    // If ad takes too long, assume it failed
+                    adBtn.disabled = false;
+                    adBtn.innerHTML = '<i class="fas fa-lock"></i> <span id="ad-count-text">Download Unlock (' + currentCount + '/5)</span>';
+                    showToast("Ad loading timeout. Please try again.");
+                }, 15000);
+                
+                // Wait for ad to show
+                await adPromise;
+                
+                // Clear timeout if ad loaded successfully
+                clearTimeout(adTimeout);
+                
+                // Increment count - সর্বোচ্চ ৫ পর্যন্ত
+                currentCount = getAdCount(currentMovieId); // fresh count
+                let newCount = Math.min(currentCount + 1, 5); // ৫ এর বেশি হবে না
+                
+                adCounts[currentMovieId] = newCount;
+                localStorage.setItem(`ad_count_${currentMovieId}`, newCount);
+                
+                console.log("Ad watched. New count:", newCount, "Movie ID:", currentMovieId);
+                
+                // Start cooldown
+                startCooldown();
+                
+                // Update button immediately
+                document.getElementById('ad-count-text').textContent = `Download Unlock (${newCount}/5)`;
+                adBtn.innerHTML = '<i class="fas fa-lock"></i> <span id="ad-count-text">Download Unlock (' + newCount + '/5)</span>';
+                adBtn.disabled = false;
+                
+                // Update display - এই লাইন গুরুত্বপূর্ণ
+                updateAdDisplay();
+                
+                // Show toast
+                if(newCount >= 5) {
+                    showToast("🎉 Download Unlocked! Click to download.");
+                    // Save download timestamp
+                    localStorage.setItem(`download_time_${currentMovieId}`, Date.now());
+                    
+                    // IMMEDIATELY SHOW DOWNLOAD BUTTON
+                    setTimeout(() => {
+                        const adBtn = document.getElementById('ad-unlock-btn');
+                        const downloadLink = document.getElementById('download-link');
+                        
+                        console.log("Force showing download button");
+                        
+                        if (adBtn) {
+                            adBtn.style.display = 'none';
+                        }
+                        if (downloadLink) {
+                            downloadLink.style.display = 'flex';
+                            downloadLink.href = currentMovieLink;
+                        }
+                    }, 100);
+                } else {
+                    showToast(`Ad watched! ${newCount}/5 completed`);
+                }
+                
+            } catch(err) {
+                console.error("Ad error:", err);
+                // Don't show error if user closed the ad
+                if (err.message && (err.message.includes("closed") || err.message.includes("dismiss"))) {
+                    // User closed the ad, don't show error
+                    showToast("Ad closed. Click again to watch.");
+                } else {
+                    showToast("Watched.");
+                }
+                
+                // Reset button to show current count
+                currentCount = getAdCount(currentMovieId);
+                adBtn.disabled = false;
+                adBtn.innerHTML = '<i class="fas fa-lock"></i> <span id="ad-count-text">Download Unlock (' + currentCount + '/5)</span>';
+            }
+        }
+
+        // --- Details Modal ---
+        window.openDetails = (movie) => {
+            const modal = document.getElementById('movie-modal');
+            
+            document.getElementById('detail-poster').src = movie.poster;
+            // শুধু মুভির title দেখানো
+            document.getElementById('detail-title').innerText = movie.title;
+            document.getElementById('detail-year').innerText = movie.year;
+            document.getElementById('detail-genre').innerText = movie.genre;
+            document.getElementById('detail-rating').innerText = movie.rating;
+            document.getElementById('detail-desc').innerText = movie.desc;
+            
+            currentMovieId = movie.id;
+            currentMovieLink = movie.link;
+            
+            // Reset cooldown
+            if (adCooldown) {
+                clearInterval(adCooldown);
+                canWatchAd = true;
+                document.getElementById('cooldown-timer').style.display = 'none';
+            }
+            
+            // Clear any existing timeout
+            if (adTimeout) clearTimeout(adTimeout);
+            
+            // Get current count
+            const currentCount = getAdCount(currentMovieId);
+            console.log("Opening details. Current count:", currentCount, "Movie ID:", currentMovieId);
+            
+            // Update ad display
+            updateAdDisplay();
+            
+            // Setup ad button click
+            const adBtn = document.getElementById('ad-unlock-btn');
+            adBtn.onclick = watchAd;
+            
+            // Handle download button click - ডাউনলোডের সময় timestamp সেভ করো
+            const downloadLink = document.getElementById('download-link');
+            downloadLink.onclick = function() {
+                localStorage.setItem(`download_time_${currentMovieId}`, Date.now());
+                // এড কাউন্ট রিসেট করো যাতে আবার ৫টা এড দেখাতে হয়
+                adCounts[currentMovieId] = 0;
+                localStorage.setItem(`ad_count_${currentMovieId}`, 0);
+                // Update display immediately
+                updateAdDisplay();
+            };
+            
+            // Handle Trailer Button
+            const playBtn = document.getElementById('play-trailer-btn');
+            playBtn.onclick = () => {
+                if(movie.trailer) window.open(movie.trailer, '_blank');
+                else showToast("Trailer not available");
+            };
+
+            modal.style.display = 'block';
+        };
+
+        window.closeModal = () => {
+            document.getElementById('movie-modal').style.display = 'none';
+            // Clear any timeout when modal closes
+            if (adTimeout) clearTimeout(adTimeout);
+        };
+
+        window.showToast = (msg) => {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        };
+
+    </script>
+</body>
+</html>
